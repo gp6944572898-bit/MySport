@@ -1,0 +1,26 @@
+# dependencies
+node_modules
+
+# build output
+.output
+.vercel
+.vinxi
+dist
+build
+
+# convex
+convex/_generated
+
+# tanstack router codegen
+src/routeTree.gen.ts
+
+# env
+.env
+.env.local
+.env.*.local
+
+# misc
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
