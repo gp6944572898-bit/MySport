@@ -1,12 +1,15 @@
-// ЗАГЛУШКА для этого отдельного фрагмента репозитория.
-// В основном проекте (Macaly) requireUserId реализован через @convex-dev/auth
-// и проверяет реальную сессию пользователя. Здесь — только чтобы convex/sports.ts
-// и convex/migrations.ts компилировались как самостоятельный фрагмент.
-// При переносе файлов обратно в основной проект этот файл заменяется на настоящий.
+// Реальная проверка авторизации через @convex-dev/auth: требует активную
+// сессию пользователя (вошедшего через Password-провайдер, см. convex/auth.ts)
+// и возвращает его Id<"users">. Все admin-мутации (sports/venues/events/banners)
+// вызывают это перед изменением данных.
+import { getAuthUserId } from "@convex-dev/auth/server"
+import type { Id } from "../_generated/dataModel"
 import type { QueryCtx, MutationCtx } from "../_generated/server"
 
-export async function requireUserId(ctx: QueryCtx | MutationCtx): Promise<string> {
-  const identity = await ctx.auth.getUserIdentity()
-  if (!identity) throw new Error("Not authenticated")
-  return identity.subject
+export async function requireUserId(
+  ctx: QueryCtx | MutationCtx,
+): Promise<Id<"users">> {
+  const userId = await getAuthUserId(ctx)
+  if (!userId) throw new Error("Требуется авторизация")
+  return userId
 }
