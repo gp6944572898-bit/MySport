@@ -16,7 +16,8 @@
     "moduleDetection": "force",
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": ["./src/*"],
+      "~convex/*": ["./convex/*"]
     },
     "types": ["vite/client"]
   },
