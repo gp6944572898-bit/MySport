@@ -1,0 +1,31 @@
+name: Deploy Convex backend
+
+# Деплоит схему и функции из convex/ в Convex-деплоймент проекта при каждом
+# пуше в main. Запускается на серверах GitHub (не в песочнице Claude Code),
+# поэтому не зависит от сетевых ограничений этой сессии.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "convex/**"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Deploy to Convex
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy -y
