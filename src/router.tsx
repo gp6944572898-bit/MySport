@@ -12,6 +12,10 @@ export function createRouter() {
   return router
 }
 
+// @tanstack/start-client-core (current @tanstack/react-start release) imports
+// this file and expects a `getRouter` named export rather than `createRouter`.
+export { createRouter as getRouter }
+
 declare module "@tanstack/react-router" {
   interface Register {
     router: ReturnType<typeof createRouter>
