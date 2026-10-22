@@ -12,6 +12,7 @@
     "convex:deploy": "convex deploy"
   },
   "dependencies": {
+    "@auth/core": "^0.37.0",
     "@convex-dev/auth": "^0.0.81",
     "@tanstack/react-router": "^1.121.0",
     "@tanstack/react-start": "^1.121.0",
