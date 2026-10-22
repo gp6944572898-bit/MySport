@@ -23,7 +23,11 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install
+        # --legacy-peer-deps: npm's Arborist иногда падает с "Cannot read
+        # properties of null (reading 'edgesOut')" (известный баг npm) при
+        # строгом разрешении пиров на чистом npm 10.x без lock-файла —
+        # на Vercel (другая версия npm) та же установка проходит нормально.
+        run: npm install --legacy-peer-deps
 
       - name: Deploy to Convex
         env:
