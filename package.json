@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@tanstack/router-devtools": "^1.121.0",
-    "nitro": "^3.0.1",
+    "nitro": "^3.0.0-0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "autoprefixer": "^10.4.20",
