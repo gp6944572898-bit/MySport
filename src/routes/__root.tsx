@@ -28,12 +28,12 @@ export const Route = createRootRoute({
 })
 
 function RootComponent() {
-  // ВРЕМЕННО для диагностики 508 INFINITE_LOOP_DETECTED: отключён
-  // ConvexAuthProvider/NavBar, чтобы проверить, не из-за SSR Convex Auth
-  // ли самовызов. Вернуть после проверки.
   return (
     <RootDocument>
-      <Outlet />
+      <ConvexAuthProvider client={convex}>
+        <NavBar />
+        <Outlet />
+      </ConvexAuthProvider>
     </RootDocument>
   )
 }
