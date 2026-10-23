@@ -11,7 +11,15 @@ export default defineConfig({
     tsConfigPaths({
       projects: ["./tsconfig.json"],
     }),
-    tanstackStart(),
+    tanstackStart({
+      // На Vercel пререндер TanStack Start делает HTTP-запрос самого себя
+      // на свой же деплойный URL, чтобы сгенерировать статический HTML —
+      // именно это и давало 508 INFINITE_LOOP_DETECTED на каждой странице
+      // (Vercel обслуживает SSR по запросу, пререндер тут не нужен).
+      prerender: {
+        enabled: false,
+      },
+    }),
     nitro(),
   ],
 })
