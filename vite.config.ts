@@ -4,7 +4,6 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 // Vercel — сайт собирается, но отдаёт 404 на всех страницах (включая "/"),
 // потому что Vercel получает только статические ассеты без SSR-рендера.
 import { nitro } from "nitro/vite"
-import viteReact from "@vitejs/plugin-react"
 import tsConfigPaths from "vite-tsconfig-paths"
 
 export default defineConfig({
@@ -14,6 +13,5 @@ export default defineConfig({
     }),
     tanstackStart(),
     nitro(),
-    viteReact(),
   ],
 })
