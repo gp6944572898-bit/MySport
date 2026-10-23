@@ -12,14 +12,26 @@ export default defineConfig({
       projects: ["./tsconfig.json"],
     }),
     tanstackStart({
-      // На Vercel пререндер TanStack Start делает HTTP-запрос самого себя
-      // на свой же деплойный URL, чтобы сгенерировать статический HTML —
-      // именно это и давало 508 INFINITE_LOOP_DETECTED на каждой странице
-      // (Vercel обслуживает SSR по запросу, пререндер тут не нужен).
+      // Пререндер на Vercel тут не нужен — SSR и так рендерится по каждому
+      // запросу. (Проверено: сам по себе отключённый пререндер цикл не
+      // устранил — см. комментарий у nitro() ниже с настоящей причиной.)
       prerender: {
         enabled: false,
       },
     }),
-    nitro(),
+    // entryFormat: "node" — задокументированный обход известного бага
+    // nitro/srvx на Vercel (TanStack/router#6562): веб-обработчик Nitro
+    // перезаписывает req.runtime целиком и стирает runtime.node, который
+    // ставит srvx; из-за сломанного объекта запроса обработчик вместо
+    // ответа клиенту уходит в исходящий HTTP-запрос на собственный домен
+    // (видно в Vercel Logs как "External APIs: GET <свой же хост>"),
+    // отсюда 508 INFINITE_LOOP_DETECTED. Node-формат входа не трогает
+    // runtime.node.
+    nitro({
+      preset: "vercel",
+      vercel: {
+        entryFormat: "node",
+      },
+    }),
   ],
 })
