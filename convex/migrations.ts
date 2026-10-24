@@ -1,9 +1,17 @@
 // Одноразовая миграция: синхронизирует справочник видов спорта с официальным
 // реестром ВРВС (раздел, код, номер) и подгружает дисциплины из seed-чанков.
 // Безопасно перезапускать — обновляет существующие записи по slug, новые добавляет.
+//
+// internalMutation, а не mutation: эта функция не нужна клиентскому коду
+// (сайту) вообще — она запускается один раз вручную через Convex Dashboard
+// (вкладка Functions). Поэтому проверка requireUserId тут не нужна и даже
+// мешала бы: Dashboard не передаёт сессию входа на сайте, так что обычная
+// мутация с requireUserId просто падала бы с "Требуется авторизация".
+// internal-функции и так недоступны напрямую с фронтенда (только из
+// Dashboard или другого backend-кода), так что отдельная проверка авторизации
+// для них избыточна.
 import { v } from "convex/values"
-import { mutation } from "./_generated/server"
-import { requireUserId } from "./lib/authz"
+import { internalMutation } from "./_generated/server"
 
 import registry from "../src/data/sports-registry.json"
 import disc01 from "./seedData/disc-01.json"
@@ -31,7 +39,7 @@ const allDiscChunks: DiscEntry[][] = [
   disc10,
 ] as DiscEntry[][]
 
-export const syncRegistryWithDisciplines = mutation({
+export const syncRegistryWithDisciplines = internalMutation({
   args: {},
   returns: v.object({
     inserted: v.number(),
@@ -39,8 +47,6 @@ export const syncRegistryWithDisciplines = mutation({
     disciplinesAttached: v.number(),
   }),
   handler: async (ctx) => {
-    await requireUserId(ctx)
-
     // Группируем дисциплины по slug вида спорта
     const disciplinesBySlug = new Map<string, string[]>()
     for (const chunk of allDiscChunks) {
