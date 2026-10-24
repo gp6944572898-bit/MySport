@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@auth/core": "^0.37.0",
-    "@convex-dev/auth": "^0.0.81",
+    "@convex-dev/auth": "0.0.94",
     "@tanstack/react-router": "^1.121.0",
     "@tanstack/react-start": "^1.121.0",
     "convex": "^1.24.1",
@@ -22,7 +22,6 @@
   },
   "devDependencies": {
     "@tanstack/router-devtools": "^1.121.0",
-    "nitro": "^3.0.0-0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
     "autoprefixer": "^10.4.20",
