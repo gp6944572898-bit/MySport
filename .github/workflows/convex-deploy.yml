@@ -12,6 +12,9 @@ on:
       - "package-lock.json"
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -28,6 +31,24 @@ jobs:
         # строгом разрешении пиров на чистом npm 10.x без lock-файла —
         # на Vercel (другая версия npm) та же установка проходит нормально.
         run: npm install --legacy-peer-deps
+
+      # Без package-lock.json каждая независимая "npm install" (здесь и на
+      # Vercel) сама решает, какую именно (под)версию пакета ставить — и если
+      # это происходит в разное время, версии (например, @convex-dev/auth) на
+      # фронтенде и бэкенде могут разойтись и начать говорить на разных
+      # "диалектах" протокола. Коммитим lock-файл обратно в репозиторий, чтобы
+      # и этот workflow, и сборка на Vercel всегда ставили одни и те же версии.
+      - name: Commit package-lock.json if missing or changed
+        run: |
+          if [ -n "$(git status --porcelain package-lock.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add package-lock.json
+            git commit -m "chore: sync package-lock.json (automated)"
+            git push
+          else
+            echo "package-lock.json unchanged, nothing to commit"
+          fi
 
       - name: Deploy to Convex
         env:
