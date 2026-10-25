@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "vite build && node scripts/patch-shell.mjs",
     "start": "node .output/server/index.mjs",
     "typecheck": "tsc --noEmit",
     "convex:dev": "convex dev",
