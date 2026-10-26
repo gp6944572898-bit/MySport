@@ -1,9 +1,30 @@
 import { Link } from "@tanstack/react-router"
-import { Authenticated, Unauthenticated } from "convex/react"
+import { Authenticated, Unauthenticated, useConvexAuth, useQuery } from "convex/react"
 import { useAuthActions } from "@convex-dev/auth/react"
+import { api } from "~convex/_generated/api"
 
 const navLinkClass =
   "px-3 py-2 text-sm font-medium text-ink-600 hover:text-brand-700 [&.active]:text-brand-700"
+
+function RoleLink() {
+  const { isAuthenticated } = useConvexAuth()
+  const role = useQuery(api.profiles.me, isAuthenticated ? {} : "skip")
+  if (role === "admin") {
+    return (
+      <Link to="/admin" className="btn-secondary">
+        Админка
+      </Link>
+    )
+  }
+  if (role === "organizer") {
+    return (
+      <Link to="/organizer" className="btn-secondary">
+        Кабинет организатора
+      </Link>
+    )
+  }
+  return null
+}
 
 export function NavBar() {
   const { signOut } = useAuthActions()
@@ -34,9 +55,7 @@ export function NavBar() {
 
         <div className="flex items-center gap-2">
           <Authenticated>
-            <Link to="/admin" className="btn-secondary">
-              Админка
-            </Link>
+            <RoleLink />
             <button type="button" className="btn-ghost" onClick={() => void signOut()}>
               Выйти
             </button>

@@ -1,7 +1,7 @@
 // Справочник спортивных площадок: используется в событиях афиши.
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
-import { requireUserId } from "./lib/authz"
+import { requireRole } from "./lib/authz"
 
 const venueValidator = v.object({
   _id: v.id("venues"),
@@ -43,7 +43,10 @@ export const create = mutation({
   },
   returns: v.id("venues"),
   handler: async (ctx, { name, address, city, lat, lng }) => {
-    await requireUserId(ctx)
+    // Организаторам тоже можно создавать площадки — иначе им негде было бы
+    // проводить свои события, если подходящей площадки ещё нет в списке.
+    // Редактировать/удалять чужие площадки остаётся только у админа.
+    await requireRole(ctx, ["admin", "organizer"])
     const trimmedName = name.trim()
     const trimmedCity = city.trim()
     if (!trimmedName || !trimmedCity) {
@@ -70,7 +73,7 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, { venueId, name, address, city, lat, lng }) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     const existing = await ctx.db.get(venueId)
     if (!existing) throw new Error("Площадка не найдена")
     const trimmedName = name.trim()
@@ -93,7 +96,7 @@ export const remove = mutation({
   args: { venueId: v.id("venues") },
   returns: v.null(),
   handler: async (ctx, { venueId }) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     await ctx.db.delete(venueId)
     return null
   },

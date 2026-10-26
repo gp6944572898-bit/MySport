@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router"
-import { useConvexAuth } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
+import { api } from "~convex/_generated/api"
 
 export const Route = createFileRoute("/admin")({
   component: AdminLayout,
@@ -15,8 +16,9 @@ const links = [
 
 function AdminLayout() {
   const { isLoading, isAuthenticated } = useConvexAuth()
+  const role = useQuery(api.profiles.me, isAuthenticated ? {} : "skip")
 
-  if (isLoading) {
+  if (isLoading || (isAuthenticated && role === undefined)) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-16 text-center text-ink-400">
         Загрузка…
@@ -34,6 +36,24 @@ function AdminLayout() {
         <Link to="/login" className="btn-primary mt-6 inline-flex">
           Войти
         </Link>
+      </main>
+    )
+  }
+
+  if (role !== "admin") {
+    return (
+      <main className="mx-auto max-w-md px-4 py-16 text-center">
+        <h1 className="text-xl font-bold text-ink-900">Доступ только для админов</h1>
+        <p className="mt-2 text-ink-500">
+          {role === "organizer"
+            ? "Ваш аккаунт — организатор. Создавать и загружать события можно в кабинете организатора."
+            : "Этому аккаунту ещё не выдана роль. Обратитесь к администратору платформы."}
+        </p>
+        {role === "organizer" && (
+          <Link to="/organizer" className="btn-primary mt-6 inline-flex">
+            В кабинет организатора
+          </Link>
+        )}
       </main>
     )
   }

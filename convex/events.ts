@@ -1,9 +1,10 @@
 // События афиши: привязаны к виду спорта и площадке, фильтруются по городу
 // и времени начала. by_city_startTime используется на публичной афише,
-// by_sport_startTime — для фильтра по виду спорта.
+// by_sport_startTime — для фильтра по виду спорта, by_createdBy — чтобы
+// организатор видел только свои события.
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
-import { requireUserId } from "./lib/authz"
+import { requireRole } from "./lib/authz"
 
 const rankValidator = v.union(
   v.literal("local"),
@@ -24,6 +25,8 @@ const eventValidator = v.object({
   rank: rankValidator,
   description: v.optional(v.string()),
   regulationUrl: v.optional(v.string()),
+  createdBy: v.optional(v.id("users")),
+  regulationFileId: v.optional(v.id("_storage")),
 })
 
 export const list = query({
@@ -67,21 +70,40 @@ export const get = query({
   handler: async (ctx, { eventId }) => ctx.db.get(eventId),
 })
 
-export const create = mutation({
-  args: {
-    title: v.string(),
-    sportId: v.id("sports"),
-    venueId: v.id("venues"),
-    city: v.string(),
-    startTime: v.number(),
-    endTime: v.optional(v.number()),
-    rank: rankValidator,
-    description: v.optional(v.string()),
-    regulationUrl: v.optional(v.string()),
+// События, которые создал текущий организатор/админ — для личного кабинета
+// организатора. Админу тоже можно (он увидит свои, если что-то создавал).
+export const listMine = query({
+  args: {},
+  returns: v.array(eventValidator),
+  handler: async (ctx) => {
+    const { userId } = await requireRole(ctx, ["admin", "organizer"])
+    const events = await ctx.db
+      .query("events")
+      .withIndex("by_createdBy", (q) => q.eq("createdBy", userId))
+      .collect()
+    events.sort((a, b) => b.startTime - a.startTime)
+    return events
   },
+})
+
+const eventFields = {
+  title: v.string(),
+  sportId: v.id("sports"),
+  venueId: v.id("venues"),
+  city: v.string(),
+  startTime: v.number(),
+  endTime: v.optional(v.number()),
+  rank: rankValidator,
+  description: v.optional(v.string()),
+  regulationUrl: v.optional(v.string()),
+  regulationFileId: v.optional(v.id("_storage")),
+}
+
+export const create = mutation({
+  args: eventFields,
   returns: v.id("events"),
   handler: async (ctx, args) => {
-    await requireUserId(ctx)
+    const { userId } = await requireRole(ctx, ["admin", "organizer"])
     const title = args.title.trim()
     const city = args.city.trim()
     if (!title || !city) throw new Error("Название и город обязательны")
@@ -91,28 +113,21 @@ export const create = mutation({
       city,
       description: args.description?.trim() || undefined,
       regulationUrl: args.regulationUrl?.trim() || undefined,
+      createdBy: userId,
     })
   },
 })
 
 export const update = mutation({
-  args: {
-    eventId: v.id("events"),
-    title: v.string(),
-    sportId: v.id("sports"),
-    venueId: v.id("venues"),
-    city: v.string(),
-    startTime: v.number(),
-    endTime: v.optional(v.number()),
-    rank: rankValidator,
-    description: v.optional(v.string()),
-    regulationUrl: v.optional(v.string()),
-  },
+  args: { eventId: v.id("events"), ...eventFields },
   returns: v.null(),
   handler: async (ctx, { eventId, ...rest }) => {
-    await requireUserId(ctx)
+    const { userId, role } = await requireRole(ctx, ["admin", "organizer"])
     const existing = await ctx.db.get(eventId)
     if (!existing) throw new Error("Событие не найдено")
+    if (role === "organizer" && existing.createdBy !== userId) {
+      throw new Error("Можно редактировать только свои события")
+    }
     const title = rest.title.trim()
     const city = rest.city.trim()
     if (!title || !city) throw new Error("Название и город обязательны")
@@ -131,8 +146,41 @@ export const remove = mutation({
   args: { eventId: v.id("events") },
   returns: v.null(),
   handler: async (ctx, { eventId }) => {
-    await requireUserId(ctx)
+    const { userId, role } = await requireRole(ctx, ["admin", "organizer"])
+    const existing = await ctx.db.get(eventId)
+    if (!existing) return null
+    if (role === "organizer" && existing.createdBy !== userId) {
+      throw new Error("Можно удалять только свои события")
+    }
     await ctx.db.delete(eventId)
     return null
+  },
+})
+
+// Массовое создание событий — используется после распознавания нескольких
+// мероприятий из одного загруженного файла (convex/ai.ts). Каждое событие
+// создаётся отдельной записью с тем же createdBy.
+export const createMany = mutation({
+  args: { events: v.array(v.object(eventFields)) },
+  returns: v.array(v.id("events")),
+  handler: async (ctx, { events }) => {
+    const { userId } = await requireRole(ctx, ["admin", "organizer"])
+    const ids = []
+    for (const args of events) {
+      const title = args.title.trim()
+      const city = args.city.trim()
+      if (!title || !city) continue
+      ids.push(
+        await ctx.db.insert("events", {
+          ...args,
+          title,
+          city,
+          description: args.description?.trim() || undefined,
+          regulationUrl: args.regulationUrl?.trim() || undefined,
+          createdBy: userId,
+        }),
+      )
+    }
+    return ids
   },
 })

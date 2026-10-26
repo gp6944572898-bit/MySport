@@ -1,7 +1,7 @@
 // Справочник видов спорта: используется для фильтрации событий в афише
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
-import { requireUserId } from "./lib/authz"
+import { requireRole } from "./lib/authz"
 
 const sectionValidator = v.union(
   v.literal("recognized"),
@@ -38,7 +38,7 @@ export const create = mutation({
   },
   returns: v.id("sports"),
   handler: async (ctx, { name, slug, section, registryCode, registryNumber, disciplines }) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     const trimmedName = name.trim()
     const trimmedSlug = slug.trim()
     if (!trimmedName || !trimmedSlug) throw new Error("Name and slug are required")
@@ -73,7 +73,7 @@ export const update = mutation({
     ctx,
     { sportId, name, slug, section, registryCode, registryNumber, disciplines },
   ) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     const existing = await ctx.db.get(sportId)
     if (!existing) throw new Error("Sport not found")
     const trimmedName = name.trim()
@@ -100,7 +100,7 @@ export const remove = mutation({
   args: { sportId: v.id("sports") },
   returns: v.null(),
   handler: async (ctx, { sportId }) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     await ctx.db.delete(sportId)
     return null
   },
@@ -122,7 +122,7 @@ export const importRegistry = mutation({
   },
   returns: v.object({ inserted: v.number(), skipped: v.number() }),
   handler: async (ctx, { sports }) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     const existingSlugs = new Set((await ctx.db.query("sports").collect()).map((s) => s.slug))
     let inserted = 0
     let skipped = 0

@@ -2,7 +2,7 @@
 // видно публично и в каком порядке.
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
-import { requireUserId } from "./lib/authz"
+import { requireRole } from "./lib/authz"
 
 const bannerValidator = v.object({
   _id: v.id("banners"),
@@ -38,7 +38,7 @@ export const create = mutation({
   },
   returns: v.id("banners"),
   handler: async (ctx, args) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     const title = args.title.trim()
     if (!title) throw new Error("Название обязательно")
     return ctx.db.insert("banners", {
@@ -64,7 +64,7 @@ export const update = mutation({
   },
   returns: v.null(),
   handler: async (ctx, { bannerId, ...rest }) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     const existing = await ctx.db.get(bannerId)
     if (!existing) throw new Error("Баннер не найден")
     const title = rest.title.trim()
@@ -84,7 +84,7 @@ export const remove = mutation({
   args: { bannerId: v.id("banners") },
   returns: v.null(),
   handler: async (ctx, { bannerId }) => {
-    await requireUserId(ctx)
+    await requireRole(ctx, ["admin"])
     await ctx.db.delete(bannerId)
     return null
   },

@@ -12,6 +12,7 @@
 // для них избыточна.
 import { v } from "convex/values"
 import { internalMutation } from "./_generated/server"
+import { roleValidator } from "./lib/roles"
 
 import registry from "../src/data/sports-registry.json"
 import disc01 from "./seedData/disc-01.json"
@@ -146,5 +147,37 @@ export const deleteAuthAccountByEmail = internalMutation({
     }
 
     return { deletedAccounts, deletedUsers, deletedSessions }
+  },
+})
+
+// Выдаёт роль ("admin" или "organizer") зарегистрированному пользователю по
+// email. Запускается вручную через Convex Dashboard (вкладка Functions) —
+// это осознанно internal-функция, а не публичная мутация: назначать себе
+// или кому угодно роль админа через клиентский код нельзя.
+export const setRoleByEmail = internalMutation({
+  args: { email: v.string(), role: roleValidator },
+  returns: v.union(
+    v.object({ status: v.literal("ok"), created: v.boolean() }),
+    v.object({ status: v.literal("user_not_found") }),
+  ),
+  handler: async (ctx, { email, role }) => {
+    const normalizedEmail = email.trim().toLowerCase()
+    const accounts = await ctx.db.query("authAccounts").collect()
+    const account = accounts.find(
+      (a) => a.provider === "password" && a.providerAccountId.trim().toLowerCase() === normalizedEmail,
+    )
+    if (!account) return { status: "user_not_found" as const }
+
+    const existing = await ctx.db
+      .query("profiles")
+      .withIndex("by_userId", (q) => q.eq("userId", account.userId))
+      .unique()
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { role, email: normalizedEmail })
+      return { status: "ok" as const, created: false }
+    }
+    await ctx.db.insert("profiles", { userId: account.userId, email: normalizedEmail, role })
+    return { status: "ok" as const, created: true }
   },
 })
