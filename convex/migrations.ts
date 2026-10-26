@@ -103,3 +103,48 @@ export const syncRegistryWithDisciplines = internalMutation({
     return { inserted, updated, disciplinesAttached }
   },
 })
+
+// Удаляет тестовую учётную запись (email + пароль) вместе с её сессиями,
+// чтобы можно было заново зарегистрироваться на тот же email. Полезно во
+// время разработки, когда регистрация могла "наполовину" пройти из-за
+// старых багов деплоя. Как и миграция выше — internalMutation, запускается
+// вручную через Convex Dashboard (вкладка Functions), а не с фронтенда.
+export const deleteAuthAccountByEmail = internalMutation({
+  args: { email: v.string() },
+  returns: v.object({
+    deletedAccounts: v.number(),
+    deletedUsers: v.number(),
+    deletedSessions: v.number(),
+  }),
+  handler: async (ctx, { email }) => {
+    const normalizedEmail = email.trim().toLowerCase()
+    let deletedAccounts = 0
+    let deletedUsers = 0
+    let deletedSessions = 0
+
+    const accounts = await ctx.db.query("authAccounts").collect()
+    for (const account of accounts) {
+      if (account.providerAccountId.trim().toLowerCase() !== normalizedEmail) continue
+
+      const userId = account.userId
+      await ctx.db.delete(account._id)
+      deletedAccounts++
+
+      const sessions = await ctx.db.query("authSessions").collect()
+      for (const session of sessions) {
+        if (session.userId === userId) {
+          await ctx.db.delete(session._id)
+          deletedSessions++
+        }
+      }
+
+      const user = await ctx.db.get(userId)
+      if (user) {
+        await ctx.db.delete(userId)
+        deletedUsers++
+      }
+    }
+
+    return { deletedAccounts, deletedUsers, deletedSessions }
+  },
+})
