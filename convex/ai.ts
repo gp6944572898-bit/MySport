@@ -7,8 +7,19 @@
 
 import { v } from "convex/values"
 import { action } from "./_generated/server"
-import { requireRole } from "./lib/authz"
+import { api } from "./_generated/api"
 import type { Id } from "./_generated/dataModel"
+
+// В экшенах нет прямого доступа к ctx.db, поэтому роль проверяем через
+// запрос profiles.me (авторизация передаётся из экшена в runQuery).
+async function requireOrganizerOrAdmin(ctx: {
+  runQuery: (fn: any, args: any) => Promise<any>
+}) {
+  const role = await ctx.runQuery(api.profiles.me, {})
+  if (role !== "admin" && role !== "organizer") {
+    throw new Error("Недостаточно прав для этого действия")
+  }
+}
 
 const extractedEventSchema = {
   type: "OBJECT",
@@ -102,7 +113,7 @@ export const extractEvent = action({
   args: { storageId: v.id("_storage") },
   returns: v.any(),
   handler: async (ctx, { storageId }) => {
-    await requireRole(ctx, ["admin", "organizer"])
+    await requireOrganizerOrAdmin(ctx)
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) throw new Error("GEMINI_API_KEY не настроен в Convex")
 
@@ -117,7 +128,7 @@ export const extractEvents = action({
   args: { storageId: v.id("_storage") },
   returns: v.any(),
   handler: async (ctx, { storageId }) => {
-    await requireRole(ctx, ["admin", "organizer"])
+    await requireOrganizerOrAdmin(ctx)
     const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) throw new Error("GEMINI_API_KEY не настроен в Convex")
 
