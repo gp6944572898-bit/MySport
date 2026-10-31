@@ -49,6 +49,33 @@ const extractedEventSchema = {
   required: ["title", "sportName", "city", "startDateTime", "rank"],
 }
 
+// Список доступных flash-моделей, поддерживающих generateContent: названия
+// моделей у Google меняются и старые отключают, поэтому берём актуальный
+// список прямо у API и пробуем модели по очереди, если одна перегружена.
+async function listFlashModels(apiKey: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=200&key=${apiKey}`,
+    )
+    if (!res.ok) return []
+    const data = (await res.json()) as {
+      models?: Array<{ name: string; supportedGenerationMethods?: string[] }>
+    }
+    return (data.models ?? [])
+      .filter(
+        (m) =>
+          m.name.includes("flash") &&
+          m.supportedGenerationMethods?.includes("generateContent") &&
+          !/(image|tts|live|audio|embedding|thinking|exp|preview-)/.test(m.name),
+      )
+      .map((m) => m.name.replace("models/", ""))
+      .sort()
+      .reverse()
+  } catch {
+    return []
+  }
+}
+
 async function callGemini(opts: {
   apiKey: string
   mimeType: string
@@ -56,7 +83,6 @@ async function callGemini(opts: {
   prompt: string
   responseSchema: unknown
 }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL ?? "gemini-3.8-flash"}:generateContent?key=${opts.apiKey}`
   const body = JSON.stringify({
     contents: [
       {
@@ -72,33 +98,44 @@ async function callGemini(opts: {
     },
   })
 
-  // Gemini иногда отвечает 503/429 при всплесках нагрузки на стороне Google —
-  // это временно, поэтому повторяем запрос несколько раз с растущей паузой.
-  const delaysMs = [2000, 5000, 10000]
+  const primary = process.env.GEMINI_MODEL ?? "gemini-3.8-flash"
+  const models = [primary]
   let lastError = ""
-  for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-    })
+  let listed = false
 
-    if (res.ok) {
-      const data = (await res.json()) as {
-        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+  for (let i = 0; i < models.length; i++) {
+    const model = models[i]
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${opts.apiKey}`
+
+    // Одна модель: до 2 попыток при временных 503/429.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      })
+      if (res.ok) {
+        const data = (await res.json()) as {
+          candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+        }
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+        if (!text) throw new Error("Gemini не вернул данные — возможно, файл не распознан")
+        return JSON.parse(text)
       }
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-      if (!text) throw new Error("Gemini не вернул данные — возможно, файл не распознан")
-      return JSON.parse(text)
+      lastError = `${model} (${res.status}): ${(await res.text()).slice(0, 200)}`
+      if (res.status !== 503 && res.status !== 429) break
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 2000))
     }
 
-    lastError = `(${res.status}): ${(await res.text()).slice(0, 300)}`
-    const retryable = res.status === 503 || res.status === 429
-    if (!retryable || attempt === delaysMs.length) break
-    await new Promise((r) => setTimeout(r, delaysMs[attempt]))
+    // Основная модель не ответила — один раз подгружаем запасные.
+    if (!listed) {
+      listed = true
+      const others = (await listFlashModels(opts.apiKey)).filter((m) => m !== primary)
+      models.push(...others.slice(0, 5))
+    }
   }
 
-  throw new Error(`Gemini сейчас перегружен или недоступен, попробуйте через минуту ${lastError}`)
+  throw new Error(`Gemini сейчас перегружен или недоступен, попробуйте через минуту. ${lastError}`)
 }
 
 async function fetchStorageFile(
