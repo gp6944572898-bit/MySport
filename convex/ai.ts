@@ -56,39 +56,49 @@ async function callGemini(opts: {
   prompt: string
   responseSchema: unknown
 }) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL ?? "gemini-3.8-flash"}:generateContent?key=${opts.apiKey}`,
-    {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${process.env.GEMINI_MODEL ?? "gemini-3.8-flash"}:generateContent?key=${opts.apiKey}`
+  const body = JSON.stringify({
+    contents: [
+      {
+        parts: [
+          { text: opts.prompt },
+          { inline_data: { mime_type: opts.mimeType, data: opts.base64Data } },
+        ],
+      },
+    ],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: opts.responseSchema,
+    },
+  })
+
+  // Gemini иногда отвечает 503/429 при всплесках нагрузки на стороне Google —
+  // это временно, поэтому повторяем запрос несколько раз с растущей паузой.
+  const delaysMs = [2000, 5000, 10000]
+  let lastError = ""
+  for (let attempt = 0; attempt <= delaysMs.length; attempt++) {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: opts.prompt },
-              { inline_data: { mime_type: opts.mimeType, data: opts.base64Data } },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: opts.responseSchema,
-        },
-      }),
-    },
-  )
+      body,
+    })
 
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(`Gemini API вернул ошибку (${res.status}): ${errText.slice(0, 500)}`)
+    if (res.ok) {
+      const data = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+      }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+      if (!text) throw new Error("Gemini не вернул данные — возможно, файл не распознан")
+      return JSON.parse(text)
+    }
+
+    lastError = `(${res.status}): ${(await res.text()).slice(0, 300)}`
+    const retryable = res.status === 503 || res.status === 429
+    if (!retryable || attempt === delaysMs.length) break
+    await new Promise((r) => setTimeout(r, delaysMs[attempt]))
   }
 
-  const data = (await res.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
-  }
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw new Error("Gemini не вернул данные — возможно, файл не распознан")
-  return JSON.parse(text)
+  throw new Error(`Gemini сейчас перегружен или недоступен, попробуйте через минуту ${lastError}`)
 }
 
 async function fetchStorageFile(
