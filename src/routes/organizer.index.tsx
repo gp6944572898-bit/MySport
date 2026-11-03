@@ -6,6 +6,8 @@ import type { Doc, Id } from "~convex/_generated/dataModel"
 import { datetimeLocalToTimestamp, formatEventDateTime } from "~/lib/format"
 import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, type EventRank } from "~/lib/sportSections"
 import { fuzzyFind, uploadFile } from "~/lib/upload"
+import { presetsForSport } from "~/lib/bannerPresets"
+import { EventBanner } from "~/components/EventBanner"
 
 export const Route = createFileRoute("/organizer/")({
   component: OrganizerIndex,
@@ -26,6 +28,9 @@ type EventForm = {
   description: string
   regulationUrl: string
   regulationFileId: Id<"_storage"> | null
+  bannerFileId: Id<"_storage"> | null
+  bannerPreset: string | null
+  bannerPreviewUrl: string | null
 }
 
 function emptyForm(): EventForm {
@@ -42,6 +47,9 @@ function emptyForm(): EventForm {
     description: "",
     regulationUrl: "",
     regulationFileId: null,
+    bannerFileId: null,
+    bannerPreset: null,
+    bannerPreviewUrl: null,
   }
 }
 
@@ -134,6 +142,60 @@ function EventForm({
   const extractEvent = useAction(api.ai.extractEvent)
   const createVenue = useMutation(api.venues.create)
   const createEvent = useMutation(api.events.create)
+  const generateBanner = useAction(api.ai.generateBanner)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
+  const [bannerBusy, setBannerBusy] = useState<"upload" | "ai" | null>(null)
+  const [bannerError, setBannerError] = useState<string | null>(null)
+
+  const selectedSport = sports.find((s) => s._id === form.sportId)
+
+  async function handleBannerUpload(file: File) {
+    setBannerBusy("upload")
+    setBannerError(null)
+    try {
+      const uploadUrl = await generateUploadUrl()
+      const storageId = await uploadFile(uploadUrl, file)
+      setForm((f) => ({
+        ...f,
+        bannerFileId: storageId,
+        bannerPreset: null,
+        bannerPreviewUrl: URL.createObjectURL(file),
+      }))
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : "Не удалось загрузить баннер")
+    } finally {
+      setBannerBusy(null)
+    }
+  }
+
+  async function handleBannerGenerate() {
+    if (!form.title.trim()) {
+      setBannerError("Сначала впишите название события — баннер рисуется по нему")
+      return
+    }
+    setBannerBusy("ai")
+    setBannerError(null)
+    try {
+      const result = await generateBanner({
+        title: form.title.trim(),
+        sportName: selectedSport?.name,
+        city: form.city || undefined,
+        dateText: form.startTime
+          ? formatEventDateTime(datetimeLocalToTimestamp(form.startTime))
+          : undefined,
+      })
+      setForm((f) => ({
+        ...f,
+        bannerFileId: result.storageId,
+        bannerPreset: null,
+        bannerPreviewUrl: result.url,
+      }))
+    } catch (err) {
+      setBannerError(err instanceof Error ? err.message : "Не удалось сгенерировать баннер")
+    } finally {
+      setBannerBusy(null)
+    }
+  }
 
   async function handleRecognize() {
     const file = fileInputRef.current?.files?.[0]
@@ -205,6 +267,8 @@ function EventForm({
         description: form.description || undefined,
         regulationUrl: form.regulationUrl || undefined,
         regulationFileId: form.regulationFileId ?? undefined,
+        bannerFileId: form.bannerFileId ?? undefined,
+        bannerPreset: form.bannerPreset ?? undefined,
       })
       onDone()
     } finally {
@@ -375,6 +439,92 @@ function EventForm({
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
         />
+      </div>
+
+      <div className="rounded-xl border border-ink-100 p-4">
+        <label className="mb-2 block text-sm font-medium text-ink-700">Баннер события</label>
+
+        {(form.bannerPreviewUrl || form.bannerPreset) && (
+          <div className="mb-3 max-w-xs">
+            <EventBanner
+              bannerUrl={form.bannerPreviewUrl}
+              bannerPreset={form.bannerPreset}
+              title={form.title || "Название события"}
+              sportName={selectedSport?.name}
+            />
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={bannerInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void handleBannerUpload(file)
+              e.target.value = ""
+            }}
+          />
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={bannerBusy !== null}
+            onClick={() => bannerInputRef.current?.click()}
+          >
+            {bannerBusy === "upload" ? "Загружаем…" : "Загрузить своё"}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={bannerBusy !== null}
+            onClick={handleBannerGenerate}
+          >
+            {bannerBusy === "ai" ? "Рисуем…" : "Создать с помощью ИИ"}
+          </button>
+          {(form.bannerFileId || form.bannerPreset) && (
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() =>
+                setForm({ ...form, bannerFileId: null, bannerPreset: null, bannerPreviewUrl: null })
+              }
+            >
+              Убрать
+            </button>
+          )}
+        </div>
+        {bannerError && <p className="mt-2 text-sm text-red-600">{bannerError}</p>}
+
+        <p className="mb-2 mt-4 text-xs font-medium text-ink-500">
+          Или выберите из подборки{selectedSport ? ` для «${selectedSport.name}»` : ""}:
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {presetsForSport(selectedSport?.name).map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              onClick={() =>
+                setForm({
+                  ...form,
+                  bannerPreset: preset.id,
+                  bannerFileId: null,
+                  bannerPreviewUrl: null,
+                })
+              }
+              className={`overflow-hidden rounded-xl border-2 text-left ${
+                form.bannerPreset === preset.id ? "border-brand-600" : "border-transparent"
+              }`}
+            >
+              <EventBanner
+                bannerPreset={preset.id}
+                title={form.title || preset.label}
+                sportName={preset.label}
+              />
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-1">

@@ -3,7 +3,8 @@
 // by_sport_startTime — для фильтра по виду спорта, by_createdBy — чтобы
 // организатор видел только свои события.
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { mutation, query, type QueryCtx } from "./_generated/server"
+import type { Doc } from "./_generated/dataModel"
 import { requireRole } from "./lib/authz"
 
 const rankValidator = v.union(
@@ -27,7 +28,22 @@ const eventValidator = v.object({
   regulationUrl: v.optional(v.string()),
   createdBy: v.optional(v.id("users")),
   regulationFileId: v.optional(v.id("_storage")),
+  bannerFileId: v.optional(v.id("_storage")),
+  bannerPreset: v.optional(v.string()),
+  // Готовый адрес картинки баннера (подставляется на сервере).
+  bannerUrl: v.optional(v.string()),
 })
+
+// Добавляет к событиям прямой адрес загруженного баннера, чтобы фронтенду
+// не приходилось запрашивать адрес для каждого события отдельно.
+async function withBannerUrls(ctx: QueryCtx, events: Doc<"events">[]) {
+  return Promise.all(
+    events.map(async (e) => ({
+      ...e,
+      bannerUrl: e.bannerFileId ? ((await ctx.storage.getUrl(e.bannerFileId)) ?? undefined) : undefined,
+    })),
+  )
+}
 
 export const list = query({
   args: {
@@ -60,14 +76,17 @@ export const list = query({
     }
     filtered.sort((a, b) => a.startTime - b.startTime)
     if (limit !== undefined) filtered = filtered.slice(0, limit)
-    return filtered
+    return withBannerUrls(ctx, filtered)
   },
 })
 
 export const get = query({
   args: { eventId: v.id("events") },
   returns: v.union(eventValidator, v.null()),
-  handler: async (ctx, { eventId }) => ctx.db.get(eventId),
+  handler: async (ctx, { eventId }) => {
+    const event = await ctx.db.get(eventId)
+    return event ? (await withBannerUrls(ctx, [event]))[0] : null
+  },
 })
 
 // События, которые создал текущий организатор/админ — для личного кабинета
@@ -82,7 +101,7 @@ export const listMine = query({
       .withIndex("by_createdBy", (q) => q.eq("createdBy", userId))
       .collect()
     events.sort((a, b) => b.startTime - a.startTime)
-    return events
+    return withBannerUrls(ctx, events)
   },
 })
 
@@ -97,6 +116,8 @@ const eventFields = {
   description: v.optional(v.string()),
   regulationUrl: v.optional(v.string()),
   regulationFileId: v.optional(v.id("_storage")),
+  bannerFileId: v.optional(v.id("_storage")),
+  bannerPreset: v.optional(v.string()),
 }
 
 export const create = mutation({
@@ -131,12 +152,18 @@ export const update = mutation({
     const title = rest.title.trim()
     const city = rest.city.trim()
     if (!title || !city) throw new Error("Название и город обязательны")
+    // Файлы (положение, баннер) меняем только если они переданы: форма админа
+    // их не знает, и без этого её сохранение стирало бы загруженное организатором.
+    const { regulationFileId, bannerFileId, bannerPreset, ...base } = rest
     await ctx.db.patch(eventId, {
-      ...rest,
+      ...base,
       title,
       city,
       description: rest.description?.trim() || undefined,
       regulationUrl: rest.regulationUrl?.trim() || undefined,
+      ...(regulationFileId !== undefined ? { regulationFileId } : {}),
+      ...(bannerFileId !== undefined ? { bannerFileId, bannerPreset: undefined } : {}),
+      ...(bannerPreset !== undefined ? { bannerPreset, bannerFileId: undefined } : {}),
     })
     return null
   },

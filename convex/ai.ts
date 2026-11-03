@@ -78,24 +78,26 @@ async function listFlashModels(apiKey: string): Promise<string[]> {
 
 async function callGemini(opts: {
   apiKey: string
-  mimeType: string
-  base64Data: string
+  mimeType?: string
+  base64Data?: string
   prompt: string
-  responseSchema: unknown
+  responseSchema?: unknown
 }) {
   const body = JSON.stringify({
     contents: [
       {
         parts: [
           { text: opts.prompt },
-          { inline_data: { mime_type: opts.mimeType, data: opts.base64Data } },
+          ...(opts.base64Data
+            ? [{ inline_data: { mime_type: opts.mimeType, data: opts.base64Data } }]
+            : []),
         ],
       },
     ],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: opts.responseSchema,
-    },
+    // Без responseSchema возвращаем обычный текст (например, SVG для баннера).
+    generationConfig: opts.responseSchema
+      ? { responseMimeType: "application/json", responseSchema: opts.responseSchema }
+      : {},
   })
 
   const primary = process.env.GEMINI_MODEL ?? "gemini-3.8-flash"
@@ -120,7 +122,7 @@ async function callGemini(opts: {
         }
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text
         if (!text) throw new Error("Gemini не вернул данные — возможно, файл не распознан")
-        return JSON.parse(text)
+        return opts.responseSchema ? JSON.parse(text) : text
       }
       lastError = `${model} (${res.status}): ${(await res.text()).slice(0, 200)}`
       if (res.status !== 503 && res.status !== 429) break
@@ -189,5 +191,52 @@ export const extractEvents = action({
       prompt,
       responseSchema: { type: "ARRAY", items: extractedEventSchema },
     })
+  },
+})
+
+// Убирает из SVG всё, что может выполнять код или тянуть внешние ресурсы.
+// Баннер показывается через <img>, где скрипты и так не исполняются, но
+// чистим на всякий случай — файл публичный и его могут открыть напрямую.
+function sanitizeSvg(raw: string): string {
+  let svg = raw.replace(/```(?:svg|xml)?/gi, "").trim()
+  const start = svg.indexOf("<svg")
+  const end = svg.lastIndexOf("</svg>")
+  if (start === -1 || end === -1) throw new Error("ИИ не вернул корректный баннер, попробуйте ещё раз")
+  svg = svg.slice(start, end + 6)
+  svg = svg
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, "")
+    .replace(/(xlink:)?href\s*=\s*("(?!#)[^"]*"|'(?!#)[^']*')/gi, "")
+  if (svg.length > 150_000) throw new Error("Баннер получился слишком большим, попробуйте ещё раз")
+  return svg
+}
+
+// Генерация баннера события ИИ: бесплатные модели Gemini не рисуют картинки,
+// но умеют писать SVG — получается аккуратная векторная обложка с названием,
+// видом спорта, городом и датой. Файл сохраняется в хранилище Convex.
+export const generateBanner = action({
+  args: {
+    title: v.string(),
+    sportName: v.optional(v.string()),
+    city: v.optional(v.string()),
+    dateText: v.optional(v.string()),
+  },
+  returns: v.object({ storageId: v.id("_storage"), url: v.union(v.string(), v.null()) }),
+  handler: async (ctx, { title, sportName, city, dateText }) => {
+    await requireOrganizerOrAdmin(ctx)
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) throw new Error("GEMINI_API_KEY не настроен в Convex")
+
+    const prompt = `Нарисуй рекламный баннер спортивного соревнования в формате SVG для сайта афиши.
+Требования: viewBox="0 0 1200 630" с width="1200" height="630"; яркий современный градиентный фон и простые векторные спортивные силуэты/фигуры по теме вида спорта; крупный читаемый заголовок; под ним мелким шрифтом вид спорта, город и дата; текст на русском, font-family="Arial, sans-serif", без обрезания текста за границы (длинный заголовок разбей на 2–3 строки через отдельные <text>/<tspan>); достаточный контраст текста с фоном.
+Запрещено: <script>, <foreignObject>, внешние ссылки и изображения, любые href кроме внутренних #id.
+Данные: заголовок «${title}»; вид спорта «${sportName ?? ""}»; город «${city ?? ""}»; дата «${dateText ?? ""}».
+Верни ТОЛЬКО код SVG, без пояснений и без markdown.`
+
+    const raw = (await callGemini({ apiKey, prompt })) as string
+    const svg = sanitizeSvg(raw)
+    const storageId = await ctx.storage.store(new Blob([svg], { type: "image/svg+xml" }))
+    return { storageId, url: await ctx.storage.getUrl(storageId) }
   },
 })

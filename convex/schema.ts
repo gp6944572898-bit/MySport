@@ -66,6 +66,10 @@ export default defineSchema({
     // Загруженный файл/скриншот положения о проведении соревнований,
     // из которого можно распознать данные через Gemini (convex/ai.ts).
     regulationFileId: v.optional(v.id("_storage")),
+    // Баннер (обложка) события: либо загруженный/сгенерированный ИИ файл,
+    // либо id готового оформления из подборки (src/lib/bannerPresets.ts).
+    bannerFileId: v.optional(v.id("_storage")),
+    bannerPreset: v.optional(v.string()),
   })
     .index("by_city_startTime", ["city", "startTime"])
     .index("by_sport_startTime", ["sportId", "startTime"])

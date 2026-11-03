@@ -5,6 +5,7 @@ import { api } from "~convex/_generated/api"
 import type { Id } from "~convex/_generated/dataModel"
 import { formatEventDateTime } from "~/lib/format"
 import { EVENT_RANK_LABELS } from "~/lib/sportSections"
+import { EventBanner } from "~/components/EventBanner"
 
 export const Route = createFileRoute("/afisha")({
   component: AfishaPage,
@@ -99,9 +100,19 @@ function AfishaPage() {
           return (
             <div
               key={event._id}
-              className="card flex flex-col gap-2 p-5 sm:flex-row sm:items-center sm:justify-between"
+              className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center"
             >
-              <div>
+              {(event.bannerUrl || event.bannerPreset) && (
+                <div className="w-full shrink-0 sm:w-52">
+                  <EventBanner
+                    bannerUrl={event.bannerUrl}
+                    bannerPreset={event.bannerPreset}
+                    title={event.title}
+                    sportName={sport?.name}
+                  />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="chip">{EVENT_RANK_LABELS[event.rank]}</span>
                   {sport && <span className="text-sm text-ink-500">{sport.name}</span>}
@@ -114,7 +125,7 @@ function AfishaPage() {
                   <p className="mt-2 text-sm text-ink-600">{event.description}</p>
                 )}
               </div>
-              <div className="text-left sm:text-right">
+              <div className="text-left sm:shrink-0 sm:text-right">
                 <p className="font-medium text-brand-700">
                   {formatEventDateTime(event.startTime)}
                 </p>
