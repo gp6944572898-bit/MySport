@@ -5,6 +5,7 @@ import { api } from "~convex/_generated/api"
 import type { Doc, Id } from "~convex/_generated/dataModel"
 import { datetimeLocalToTimestamp, formatEventDateTime, timestampToDatetimeLocal } from "~/lib/format"
 import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, type EventRank } from "~/lib/sportSections"
+import { BannerPicker, type BannerValue } from "~/components/BannerPicker"
 
 export const Route = createFileRoute("/admin/events")({
   component: AdminEventsPage,
@@ -22,6 +23,7 @@ type EventForm = {
   rank: EventRank
   description: string
   regulationUrl: string
+  banner: BannerValue
 }
 
 function emptyForm(defaultCity = ""): EventForm {
@@ -35,6 +37,7 @@ function emptyForm(defaultCity = ""): EventForm {
     rank: "local",
     description: "",
     regulationUrl: "",
+    banner: { bannerFileId: null, bannerPreset: null, bannerPreviewUrl: null },
   }
 }
 
@@ -49,6 +52,11 @@ function toForm(e: Event): EventForm {
     rank: e.rank,
     description: e.description ?? "",
     regulationUrl: e.regulationUrl ?? "",
+    banner: {
+      bannerFileId: e.bannerFileId ?? null,
+      bannerPreset: e.bannerPreset ?? null,
+      bannerPreviewUrl: e.bannerUrl ?? null,
+    },
   }
 }
 
@@ -75,6 +83,8 @@ function AdminEventsPage() {
       rank: form.rank,
       description: form.description || undefined,
       regulationUrl: form.regulationUrl || undefined,
+      bannerFileId: form.banner.bannerFileId ?? undefined,
+      bannerPreset: form.banner.bannerPreset ?? undefined,
     }
   }
 
@@ -88,6 +98,10 @@ function AdminEventsPage() {
   async function handleUpdate(id: Id<"events">, form: EventForm) {
     const args = await submit(form)
     if (!args) return
+    // Баннер убрали в форме: сервер не трогает файл, если поле не передано,
+    // поэтому пустой пресет — явный сигнал «баннера больше нет».
+    const hadBanner = events?.some((e) => e._id === id && (e.bannerFileId || e.bannerPreset))
+    if (hadBanner && !args.bannerFileId && !args.bannerPreset) args.bannerPreset = ""
     await update({ eventId: id, ...args })
     setEditingId(null)
   }
@@ -321,6 +335,15 @@ function EventFormFields({
           onChange={(e) => setForm({ ...form, regulationUrl: e.target.value })}
         />
       </div>
+
+      <BannerPicker
+        value={form.banner}
+        onChange={(banner) => setForm({ ...form, banner })}
+        title={form.title}
+        sportName={sports.find((s) => s._id === form.sportId)?.name}
+        city={form.city}
+        startTime={form.startTime}
+      />
 
       <div className="flex justify-end gap-2 pt-1">
         <button type="button" className="btn-secondary" onClick={onCancel}>
