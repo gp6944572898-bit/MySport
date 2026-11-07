@@ -20,3 +20,14 @@ export const getUrl = query({
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, { storageId }) => ctx.storage.getUrl(storageId),
 })
+
+// Адрес файла для превью сразу после загрузки (вызывается из формы как
+// mutation, чтобы можно было дернуть императивно, а не через useQuery).
+export const getUrlMutation = mutation({
+  args: { storageId: v.id("_storage") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, { storageId }) => {
+    await requireRole(ctx, ["admin", "organizer"])
+    return ctx.storage.getUrl(storageId)
+  },
+})

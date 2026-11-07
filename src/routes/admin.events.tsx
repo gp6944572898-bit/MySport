@@ -4,8 +4,9 @@ import { useMutation, useQuery } from "convex/react"
 import { api } from "~convex/_generated/api"
 import type { Doc, Id } from "~convex/_generated/dataModel"
 import { datetimeLocalToTimestamp, formatEventDateTime, timestampToDatetimeLocal } from "~/lib/format"
-import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, type EventRank } from "~/lib/sportSections"
+import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, formatPrice, type EventRank } from "~/lib/sportSections"
 import { BannerPicker, type BannerValue } from "~/components/BannerPicker"
+import { EventExtraFields, emptyExtra, extraToArgs, type ExtraValue } from "~/components/EventExtraFields"
 
 export const Route = createFileRoute("/admin/events")({
   component: AdminEventsPage,
@@ -24,6 +25,7 @@ type EventForm = {
   description: string
   regulationUrl: string
   banner: BannerValue
+  extra: ExtraValue
 }
 
 function emptyForm(defaultCity = ""): EventForm {
@@ -38,6 +40,7 @@ function emptyForm(defaultCity = ""): EventForm {
     description: "",
     regulationUrl: "",
     banner: { bannerFileId: null, bannerPreset: null, bannerPreviewUrl: null },
+    extra: emptyExtra,
   }
 }
 
@@ -56,6 +59,15 @@ function toForm(e: Event): EventForm {
       bannerFileId: e.bannerFileId ?? null,
       bannerPreset: e.bannerPreset ?? null,
       bannerPreviewUrl: e.bannerUrl ?? null,
+    },
+    extra: {
+      ageCategories: e.ageCategories ?? [],
+      price: e.price ? String(e.price) : "",
+      currency: e.currency ?? "RUB",
+      // Адреса превью приходят с сервера в том же порядке, что и id файлов.
+      photos: (e.photoFileIds ?? []).flatMap((id, i) =>
+        e.photoUrls?.[i] ? [{ id, url: e.photoUrls[i] }] : [],
+      ),
     },
   }
 }
@@ -85,6 +97,7 @@ function AdminEventsPage() {
       regulationUrl: form.regulationUrl || undefined,
       bannerFileId: form.banner.bannerFileId ?? undefined,
       bannerPreset: form.banner.bannerPreset ?? undefined,
+      ...extraToArgs(form.extra),
     }
   }
 
@@ -163,7 +176,9 @@ function AdminEventsPage() {
                   <span className="text-xs text-ink-400">{event.city}</span>
                 </div>
                 <p className="mt-1 font-medium text-ink-900">{event.title}</p>
-                <p className="text-sm text-ink-500">{formatEventDateTime(event.startTime)}</p>
+                <p className="text-sm text-ink-500">
+                  {formatEventDateTime(event.startTime)} · {formatPrice(event.price, event.currency)}
+                </p>
               </div>
               <div className="flex gap-2">
                 <button className="btn-ghost" onClick={() => setEditingId(event._id)}>
@@ -335,6 +350,11 @@ function EventFormFields({
           onChange={(e) => setForm({ ...form, regulationUrl: e.target.value })}
         />
       </div>
+
+      <EventExtraFields
+        value={form.extra}
+        onChange={(extra) => setForm({ ...form, extra })}
+      />
 
       <BannerPicker
         value={form.banner}

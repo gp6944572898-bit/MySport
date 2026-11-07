@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useQuery } from "convex/react"
 import { api } from "~convex/_generated/api"
 import { formatEventDateTime } from "~/lib/format"
-import { EVENT_RANK_LABELS } from "~/lib/sportSections"
+import { EVENT_RANK_LABELS, formatPrice } from "~/lib/sportSections"
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -77,6 +77,10 @@ function HomePage() {
                 {sport && <p className="mt-1 text-sm text-ink-500">{sport.name}</p>}
                 <p className="mt-3 text-sm font-medium text-brand-700">
                   {formatEventDateTime(event.startTime)}
+                </p>
+                <p className="text-xs text-ink-500">
+                  {formatPrice(event.price, event.currency)}
+                  {event.ageCategories?.length ? ` · ${event.ageCategories.join(", ")}` : ""}
                 </p>
               </div>
             )

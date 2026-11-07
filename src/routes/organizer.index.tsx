@@ -4,9 +4,10 @@ import { useAction, useMutation, useQuery } from "convex/react"
 import { api } from "~convex/_generated/api"
 import type { Doc, Id } from "~convex/_generated/dataModel"
 import { datetimeLocalToTimestamp, formatEventDateTime } from "~/lib/format"
-import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, type EventRank } from "~/lib/sportSections"
+import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, formatPrice, type EventRank } from "~/lib/sportSections"
 import { fuzzyFind, uploadFile } from "~/lib/upload"
 import { BannerPicker } from "~/components/BannerPicker"
+import { EventExtraFields, emptyExtra, extraToArgs, type ExtraValue } from "~/components/EventExtraFields"
 
 export const Route = createFileRoute("/organizer/")({
   component: OrganizerIndex,
@@ -30,6 +31,7 @@ type EventForm = {
   bannerFileId: Id<"_storage"> | null
   bannerPreset: string | null
   bannerPreviewUrl: string | null
+  extra: ExtraValue
 }
 
 function emptyForm(): EventForm {
@@ -49,6 +51,7 @@ function emptyForm(): EventForm {
     bannerFileId: null,
     bannerPreset: null,
     bannerPreviewUrl: null,
+    extra: emptyExtra,
   }
 }
 
@@ -100,7 +103,10 @@ function OrganizerIndex() {
                 <span className="text-xs text-ink-400">{event.city}</span>
               </div>
               <p className="mt-1 font-medium text-ink-900">{event.title}</p>
-              <p className="text-sm text-ink-500">{formatEventDateTime(event.startTime)}</p>
+              <p className="text-sm text-ink-500">
+                {formatEventDateTime(event.startTime)} · {formatPrice(event.price, event.currency)}
+                {event.ageCategories?.length ? ` · ${event.ageCategories.join(", ")}` : ""}
+              </p>
             </div>
             <button
               className="btn-ghost text-red-600 hover:bg-red-50"
@@ -215,6 +221,7 @@ function EventForm({
         regulationFileId: form.regulationFileId ?? undefined,
         bannerFileId: form.bannerFileId ?? undefined,
         bannerPreset: form.bannerPreset ?? undefined,
+        ...extraToArgs(form.extra),
       })
       onDone()
     } finally {
@@ -386,6 +393,11 @@ function EventForm({
           onChange={(e) => setForm({ ...form, description: e.target.value })}
         />
       </div>
+
+      <EventExtraFields
+        value={form.extra}
+        onChange={(extra) => setForm({ ...form, extra })}
+      />
 
       <BannerPicker
         value={{
