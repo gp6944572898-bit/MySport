@@ -3,6 +3,8 @@ import { useQuery } from "convex/react"
 import { api } from "~convex/_generated/api"
 import { formatEventDateTime } from "~/lib/format"
 import { EVENT_RANK_LABELS, formatPrice } from "~/lib/sportSections"
+import { EventsMap } from "~/components/EventsMap"
+import { useCity } from "~/lib/city"
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -14,6 +16,13 @@ function HomePage() {
   const banners = useQuery(api.banners.list, { onlyActive: true })
   const events = useQuery(api.events.list, { fromTime: Date.now(), limit: 6 })
   const sports = useQuery(api.sports.list, {})
+  const city = useCity()
+  const cityVenues = useQuery(api.venues.list, { city: city.name })
+  const mapVenues = (cityVenues ?? []).flatMap((v) =>
+    v.lat !== undefined && v.lng !== undefined
+      ? [{ id: v._id, name: v.name, address: v.address, lat: v.lat, lng: v.lng }]
+      : [],
+  )
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16">
@@ -47,7 +56,11 @@ function HomePage() {
         ))}
       </section>
 
-      <section className="mt-12">
+      <section className="mt-6">
+        <EventsMap venues={mapVenues} center={[city.lng, city.lat]} />
+      </section>
+
+      <section className="mt-8">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-ink-900">Ближайшие события</h2>
           <Link to="/afisha" className="text-sm font-medium text-brand-700 hover:underline">
