@@ -7,7 +7,7 @@ import {
 import type { ReactNode } from "react"
 import { ConvexAuthProvider } from "@convex-dev/auth/react"
 import { convex } from "~/lib/convexClient"
-import { NavBar } from "~/components/NavBar"
+import { AppFooter, NavBar } from "~/components/NavBar"
 import appCss from "~/styles/app.css?url"
 
 export const Route = createRootRoute({
@@ -33,6 +33,7 @@ function RootComponent() {
       <ConvexAuthProvider client={convex}>
         <NavBar />
         <Outlet />
+        <AppFooter />
       </ConvexAuthProvider>
     </RootDocument>
   )

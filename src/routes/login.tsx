@@ -21,7 +21,7 @@ function LoginPage() {
     setSubmitting(true)
     try {
       await signIn("password", { email, password, flow: mode })
-      void navigate({ to: "/admin" })
+      void navigate({ to: "/organizer" })
     } catch (err) {
       setError(
         mode === "signIn"
@@ -36,10 +36,10 @@ function LoginPage() {
   return (
     <main className="mx-auto flex max-w-md flex-col px-4 pb-16 pt-12">
       <h1 className="text-2xl font-bold text-ink-900">
-        {mode === "signIn" ? "Вход в админку" : "Регистрация"}
+        {mode === "signIn" ? "Вход" : "Регистрация"}
       </h1>
       <p className="mt-1 text-ink-500">
-        Доступ к админ-панели «Мой Спорт» для организаторов и модераторов.
+        Войдите или зарегистрируйтесь, чтобы создавать мероприятия в «Мой Спорт».
       </p>
 
       <form onSubmit={handleSubmit} className="card mt-6 space-y-4 p-6">

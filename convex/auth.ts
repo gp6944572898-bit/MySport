@@ -6,4 +6,21 @@ import { convexAuth } from "@convex-dev/auth/server"
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [Password],
+  callbacks: {
+    // Любой зарегистрировавшийся пользователь сразу становится организатором
+    // (может создавать свои мероприятия). Роль admin выдаётся только вручную.
+    async afterUserCreatedOrUpdated(ctx, { userId, existingUserId, profile }) {
+      if (existingUserId !== null) return
+      const existing = await ctx.db
+        .query("profiles")
+        .withIndex("by_userId", (q) => q.eq("userId", userId))
+        .unique()
+      if (existing) return
+      await ctx.db.insert("profiles", {
+        userId,
+        email: typeof profile.email === "string" ? profile.email : "",
+        role: "organizer",
+      })
+    },
+  },
 })
