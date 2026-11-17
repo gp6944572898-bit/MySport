@@ -3,8 +3,9 @@ import { useMemo, useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "~convex/_generated/api"
 import type { Id } from "~convex/_generated/dataModel"
+import { RegisterButton } from "~/components/RegisterButton"
 import { formatEventDateTime } from "~/lib/format"
-import { EVENT_RANK_LABELS } from "~/lib/sportSections"
+import { EVENT_RANK_LABELS, formatPrice } from "~/lib/sportSections"
 import { EventBanner } from "~/components/EventBanner"
 
 export const Route = createFileRoute("/afisha")({
@@ -129,6 +130,11 @@ function AfishaPage() {
                 <p className="font-medium text-brand-700">
                   {formatEventDateTime(event.startTime)}
                 </p>
+                <p className="text-xs text-ink-500">
+                  {formatPrice(event.price, event.currency)}
+                  {event.ageCategories?.length ? ` · ${event.ageCategories.join(", ")}` : ""}
+                </p>
+                <RegisterButton event={event} />
                 {event.regulationUrl && (
                   <a
                     href={event.regulationUrl}

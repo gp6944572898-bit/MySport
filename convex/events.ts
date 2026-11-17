@@ -8,6 +8,7 @@ import type { Doc } from "./_generated/dataModel"
 import { requireRole } from "./lib/authz"
 
 const rankValidator = v.union(
+  v.literal("amateur"),
   v.literal("local"),
   v.literal("regional"),
   v.literal("national"),
@@ -32,6 +33,15 @@ const eventValidator = v.object({
   bannerPreset: v.optional(v.string()),
   // Готовый адрес картинки баннера (подставляется на сервере).
   bannerUrl: v.optional(v.string()),
+  ageCategories: v.optional(v.array(v.string())),
+  country: v.optional(v.string()),
+  region: v.optional(v.string()),
+  price: v.optional(v.number()),
+  currency: v.optional(v.string()),
+  capacity: v.optional(v.number()),
+  photoFileIds: v.optional(v.array(v.id("_storage"))),
+  // Готовые адреса фотографий галереи (в том же порядке, что и photoFileIds).
+  photoUrls: v.optional(v.array(v.string())),
 })
 
 // Добавляет к событиям прямой адрес загруженного баннера, чтобы фронтенду
@@ -41,6 +51,11 @@ async function withBannerUrls(ctx: QueryCtx, events: Doc<"events">[]) {
     events.map(async (e) => ({
       ...e,
       bannerUrl: e.bannerFileId ? ((await ctx.storage.getUrl(e.bannerFileId)) ?? undefined) : undefined,
+      photoUrls: e.photoFileIds
+        ? (
+            await Promise.all(e.photoFileIds.map((id) => ctx.storage.getUrl(id)))
+          ).filter((u): u is string => !!u)
+        : undefined,
     })),
   )
 }
@@ -118,6 +133,13 @@ const eventFields = {
   regulationFileId: v.optional(v.id("_storage")),
   bannerFileId: v.optional(v.id("_storage")),
   bannerPreset: v.optional(v.string()),
+  ageCategories: v.optional(v.array(v.string())),
+  country: v.optional(v.string()),
+  region: v.optional(v.string()),
+  price: v.optional(v.number()),
+  currency: v.optional(v.string()),
+  capacity: v.optional(v.number()),
+  photoFileIds: v.optional(v.array(v.id("_storage"))),
 }
 
 export const create = mutation({
@@ -128,6 +150,13 @@ export const create = mutation({
     const title = args.title.trim()
     const city = args.city.trim()
     if (!title || !city) throw new Error("Название и город обязательны")
+    // Страна и область обязательны при создании через форму
+    if (!args.country?.trim() || !args.region?.trim()) {
+      throw new Error("Укажите страну, область и город")
+    }
+    if (args.price !== undefined && (!Number.isFinite(args.price) || args.price < 0)) {
+      throw new Error("Стоимость не может быть отрицательной")
+    }
     return ctx.db.insert("events", {
       ...args,
       title,

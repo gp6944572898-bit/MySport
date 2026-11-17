@@ -4,8 +4,11 @@ import { useMutation, useQuery } from "convex/react"
 import { api } from "~convex/_generated/api"
 import type { Doc, Id } from "~convex/_generated/dataModel"
 import { datetimeLocalToTimestamp, formatEventDateTime, timestampToDatetimeLocal } from "~/lib/format"
-import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, type EventRank } from "~/lib/sportSections"
+import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, formatPrice, type EventRank } from "~/lib/sportSections"
 import { BannerPicker, type BannerValue } from "~/components/BannerPicker"
+import { ParticipantsPanel } from "~/components/ParticipantsPanel"
+import { CountryRegionFields } from "~/components/LocationFields"
+import { EventExtraFields, emptyExtra, extraToArgs, type ExtraValue } from "~/components/EventExtraFields"
 
 export const Route = createFileRoute("/admin/events")({
   component: AdminEventsPage,
@@ -17,6 +20,8 @@ type EventForm = {
   title: string
   sportId: string
   venueId: string
+  country: string
+  region: string
   city: string
   startTime: string
   endTime: string
@@ -24,6 +29,7 @@ type EventForm = {
   description: string
   regulationUrl: string
   banner: BannerValue
+  extra: ExtraValue
 }
 
 function emptyForm(defaultCity = ""): EventForm {
@@ -32,12 +38,15 @@ function emptyForm(defaultCity = ""): EventForm {
     sportId: "",
     venueId: "",
     city: defaultCity,
+    country: "",
+    region: "",
     startTime: "",
     endTime: "",
     rank: "local",
     description: "",
     regulationUrl: "",
     banner: { bannerFileId: null, bannerPreset: null, bannerPreviewUrl: null },
+    extra: emptyExtra,
   }
 }
 
@@ -47,6 +56,8 @@ function toForm(e: Event): EventForm {
     sportId: e.sportId,
     venueId: e.venueId,
     city: e.city,
+    country: e.country ?? "",
+    region: e.region ?? "",
     startTime: timestampToDatetimeLocal(e.startTime),
     endTime: e.endTime ? timestampToDatetimeLocal(e.endTime) : "",
     rank: e.rank,
@@ -56,6 +67,16 @@ function toForm(e: Event): EventForm {
       bannerFileId: e.bannerFileId ?? null,
       bannerPreset: e.bannerPreset ?? null,
       bannerPreviewUrl: e.bannerUrl ?? null,
+    },
+    extra: {
+      ageCategories: e.ageCategories ?? [],
+      price: e.price ? String(e.price) : "",
+      currency: e.currency ?? "RUB",
+      capacity: e.capacity !== undefined ? String(e.capacity) : "",
+      // Адреса превью приходят с сервера в том же порядке, что и id файлов.
+      photos: (e.photoFileIds ?? []).flatMap((id, i) =>
+        e.photoUrls?.[i] ? [{ id, url: e.photoUrls[i] }] : [],
+      ),
     },
   }
 }
@@ -78,6 +99,8 @@ function AdminEventsPage() {
       sportId: form.sportId as Id<"sports">,
       venueId: form.venueId as Id<"venues">,
       city: form.city,
+      country: form.country,
+      region: form.region,
       startTime: datetimeLocalToTimestamp(form.startTime),
       endTime: form.endTime ? datetimeLocalToTimestamp(form.endTime) : undefined,
       rank: form.rank,
@@ -85,6 +108,7 @@ function AdminEventsPage() {
       regulationUrl: form.regulationUrl || undefined,
       bannerFileId: form.banner.bannerFileId ?? undefined,
       bannerPreset: form.banner.bannerPreset ?? undefined,
+      ...extraToArgs(form.extra),
     }
   }
 
@@ -163,7 +187,10 @@ function AdminEventsPage() {
                   <span className="text-xs text-ink-400">{event.city}</span>
                 </div>
                 <p className="mt-1 font-medium text-ink-900">{event.title}</p>
-                <p className="text-sm text-ink-500">{formatEventDateTime(event.startTime)}</p>
+                <p className="text-sm text-ink-500">
+                  {formatEventDateTime(event.startTime)} · {formatPrice(event.price, event.currency)}
+                </p>
+                <ParticipantsPanel eventId={event._id} title={event.title} />
               </div>
               <div className="flex gap-2">
                 <button className="btn-ghost" onClick={() => setEditingId(event._id)}>
@@ -264,6 +291,12 @@ function EventFormFields({
         </div>
       </div>
 
+      <CountryRegionFields
+        country={form.country}
+        region={form.region}
+        onChange={(v) => setForm({ ...form, ...v })}
+      />
+
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-sm font-medium text-ink-700">Город</label>
@@ -335,6 +368,11 @@ function EventFormFields({
           onChange={(e) => setForm({ ...form, regulationUrl: e.target.value })}
         />
       </div>
+
+      <EventExtraFields
+        value={form.extra}
+        onChange={(extra) => setForm({ ...form, extra })}
+      />
 
       <BannerPicker
         value={form.banner}
