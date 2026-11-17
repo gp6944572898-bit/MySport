@@ -7,6 +7,9 @@ import { datetimeLocalToTimestamp, formatEventDateTime } from "~/lib/format"
 import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, formatPrice, type EventRank } from "~/lib/sportSections"
 import { fuzzyFind, uploadFile } from "~/lib/upload"
 import { BannerPicker } from "~/components/BannerPicker"
+import { CountryRegionFields } from "~/components/LocationFields"
+import { MapPinPicker, type Pin } from "~/components/MapPinPicker"
+import { useCity } from "~/lib/city"
 import { EventExtraFields, emptyExtra, extraToArgs, type ExtraValue } from "~/components/EventExtraFields"
 
 export const Route = createFileRoute("/organizer/")({
@@ -21,6 +24,9 @@ type EventForm = {
   venueId: string
   newVenueName: string
   newVenueAddress: string
+  country: string
+  region: string
+  pin: Pin | null
   city: string
   startTime: string
   endTime: string
@@ -41,6 +47,9 @@ function emptyForm(): EventForm {
     venueId: "",
     newVenueName: "",
     newVenueAddress: "",
+    country: "",
+    region: "",
+    pin: null,
     city: "",
     startTime: "",
     endTime: "",
@@ -147,6 +156,7 @@ function EventForm({
   const extractEvent = useAction(api.ai.extractEvent)
   const createVenue = useMutation(api.venues.create)
   const createEvent = useMutation(api.events.create)
+  const cityCenter = useCity()
   const selectedSport = sports.find((s) => s._id === form.sportId)
 
   async function handleRecognize() {
@@ -204,6 +214,8 @@ function EventForm({
           name: form.newVenueName.trim(),
           address: form.newVenueAddress.trim(),
           city: form.city.trim(),
+          lat: form.pin?.lat,
+          lng: form.pin?.lng,
         })
       }
       if (!form.sportId || !venueId || !form.startTime) return
@@ -213,6 +225,8 @@ function EventForm({
         sportId: form.sportId as Id<"sports">,
         venueId,
         city: form.city,
+        country: form.country,
+        region: form.region,
         startTime: datetimeLocalToTimestamp(form.startTime),
         endTime: form.endTime ? datetimeLocalToTimestamp(form.endTime) : undefined,
         rank: form.rank,
@@ -331,8 +345,23 @@ function EventForm({
               onChange={(e) => setForm({ ...form, newVenueAddress: e.target.value })}
             />
           </div>
+          <div className="sm:col-span-2">
+            <label className="mb-1 block text-sm font-medium text-ink-700">Место на карте</label>
+            <MapPinPicker
+              value={form.pin}
+              center={[cityCenter.lng, cityCenter.lat]}
+              address={[form.city, form.newVenueAddress].filter(Boolean).join(", ")}
+              onChange={(pin) => setForm({ ...form, pin })}
+            />
+          </div>
         </div>
       )}
+
+      <CountryRegionFields
+        country={form.country}
+        region={form.region}
+        onChange={(v) => setForm({ ...form, ...v })}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>

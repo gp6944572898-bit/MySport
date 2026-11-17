@@ -6,6 +6,7 @@ import type { Doc, Id } from "~convex/_generated/dataModel"
 import { datetimeLocalToTimestamp, formatEventDateTime, timestampToDatetimeLocal } from "~/lib/format"
 import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, formatPrice, type EventRank } from "~/lib/sportSections"
 import { BannerPicker, type BannerValue } from "~/components/BannerPicker"
+import { CountryRegionFields } from "~/components/LocationFields"
 import { EventExtraFields, emptyExtra, extraToArgs, type ExtraValue } from "~/components/EventExtraFields"
 
 export const Route = createFileRoute("/admin/events")({
@@ -18,6 +19,8 @@ type EventForm = {
   title: string
   sportId: string
   venueId: string
+  country: string
+  region: string
   city: string
   startTime: string
   endTime: string
@@ -34,6 +37,8 @@ function emptyForm(defaultCity = ""): EventForm {
     sportId: "",
     venueId: "",
     city: defaultCity,
+    country: "",
+    region: "",
     startTime: "",
     endTime: "",
     rank: "local",
@@ -50,6 +55,8 @@ function toForm(e: Event): EventForm {
     sportId: e.sportId,
     venueId: e.venueId,
     city: e.city,
+    country: e.country ?? "",
+    region: e.region ?? "",
     startTime: timestampToDatetimeLocal(e.startTime),
     endTime: e.endTime ? timestampToDatetimeLocal(e.endTime) : "",
     rank: e.rank,
@@ -90,6 +97,8 @@ function AdminEventsPage() {
       sportId: form.sportId as Id<"sports">,
       venueId: form.venueId as Id<"venues">,
       city: form.city,
+      country: form.country,
+      region: form.region,
       startTime: datetimeLocalToTimestamp(form.startTime),
       endTime: form.endTime ? datetimeLocalToTimestamp(form.endTime) : undefined,
       rank: form.rank,
@@ -278,6 +287,12 @@ function EventFormFields({
           </select>
         </div>
       </div>
+
+      <CountryRegionFields
+        country={form.country}
+        region={form.region}
+        onChange={(v) => setForm({ ...form, ...v })}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>

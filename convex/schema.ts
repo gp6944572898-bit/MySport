@@ -73,6 +73,9 @@ export default defineSchema({
     bannerPreset: v.optional(v.string()),
     // Возрастные категории участников (например, «10–12 лет»).
     ageCategories: v.optional(v.array(v.string())),
+    // Страна и область/регион (город — в поле city).
+    country: v.optional(v.string()),
+    region: v.optional(v.string()),
     // Стоимость участия (0 или пусто — бесплатно) и валюта (RUB/EUR/USD).
     price: v.optional(v.number()),
     currency: v.optional(v.string()),

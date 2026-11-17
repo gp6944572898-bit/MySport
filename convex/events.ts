@@ -34,6 +34,8 @@ const eventValidator = v.object({
   // Готовый адрес картинки баннера (подставляется на сервере).
   bannerUrl: v.optional(v.string()),
   ageCategories: v.optional(v.array(v.string())),
+  country: v.optional(v.string()),
+  region: v.optional(v.string()),
   price: v.optional(v.number()),
   currency: v.optional(v.string()),
   photoFileIds: v.optional(v.array(v.id("_storage"))),
@@ -131,6 +133,8 @@ const eventFields = {
   bannerFileId: v.optional(v.id("_storage")),
   bannerPreset: v.optional(v.string()),
   ageCategories: v.optional(v.array(v.string())),
+  country: v.optional(v.string()),
+  region: v.optional(v.string()),
   price: v.optional(v.number()),
   currency: v.optional(v.string()),
   photoFileIds: v.optional(v.array(v.id("_storage"))),
@@ -144,6 +148,10 @@ export const create = mutation({
     const title = args.title.trim()
     const city = args.city.trim()
     if (!title || !city) throw new Error("Название и город обязательны")
+    // Страна и область обязательны при создании через форму
+    if (!args.country?.trim() || !args.region?.trim()) {
+      throw new Error("Укажите страну, область и город")
+    }
     if (args.price !== undefined && (!Number.isFinite(args.price) || args.price < 0)) {
       throw new Error("Стоимость не может быть отрицательной")
     }
