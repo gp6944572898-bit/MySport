@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "~convex/_generated/api"
 import type { Id } from "~convex/_generated/dataModel"
+import { RegisterButton } from "~/components/RegisterButton"
 import { formatEventDateTime } from "~/lib/format"
 import { EVENT_RANK_LABELS, formatPrice } from "~/lib/sportSections"
 import { EventBanner } from "~/components/EventBanner"
@@ -133,6 +134,7 @@ function AfishaPage() {
                   {formatPrice(event.price, event.currency)}
                   {event.ageCategories?.length ? ` · ${event.ageCategories.join(", ")}` : ""}
                 </p>
+                <RegisterButton event={event} />
                 {event.regulationUrl && (
                   <a
                     href={event.regulationUrl}

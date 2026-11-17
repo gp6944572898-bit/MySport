@@ -6,6 +6,7 @@ import type { Doc, Id } from "~convex/_generated/dataModel"
 import { datetimeLocalToTimestamp, formatEventDateTime, timestampToDatetimeLocal } from "~/lib/format"
 import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, formatPrice, type EventRank } from "~/lib/sportSections"
 import { BannerPicker, type BannerValue } from "~/components/BannerPicker"
+import { ParticipantsPanel } from "~/components/ParticipantsPanel"
 import { CountryRegionFields } from "~/components/LocationFields"
 import { EventExtraFields, emptyExtra, extraToArgs, type ExtraValue } from "~/components/EventExtraFields"
 
@@ -71,6 +72,7 @@ function toForm(e: Event): EventForm {
       ageCategories: e.ageCategories ?? [],
       price: e.price ? String(e.price) : "",
       currency: e.currency ?? "RUB",
+      capacity: e.capacity !== undefined ? String(e.capacity) : "",
       // Адреса превью приходят с сервера в том же порядке, что и id файлов.
       photos: (e.photoFileIds ?? []).flatMap((id, i) =>
         e.photoUrls?.[i] ? [{ id, url: e.photoUrls[i] }] : [],
@@ -188,6 +190,7 @@ function AdminEventsPage() {
                 <p className="text-sm text-ink-500">
                   {formatEventDateTime(event.startTime)} · {formatPrice(event.price, event.currency)}
                 </p>
+                <ParticipantsPanel eventId={event._id} title={event.title} />
               </div>
               <div className="flex gap-2">
                 <button className="btn-ghost" onClick={() => setEditingId(event._id)}>

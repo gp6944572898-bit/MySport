@@ -79,12 +79,28 @@ export default defineSchema({
     // Стоимость участия (0 или пусто — бесплатно) и валюта (RUB/EUR/USD).
     price: v.optional(v.number()),
     currency: v.optional(v.string()),
+    // Лимит участников (пусто — без ограничений).
+    capacity: v.optional(v.number()),
     // Галерея фотографий события (файлы в Convex Storage).
     photoFileIds: v.optional(v.array(v.id("_storage"))),
   })
     .index("by_city_startTime", ["city", "startTime"])
     .index("by_sport_startTime", ["sportId", "startTime"])
     .index("by_createdBy", ["createdBy"]),
+
+  // Заявки на участие в событии. Оплата и страховка будут добавлены позже.
+  registrations: defineTable({
+    eventId: v.id("events"),
+    userId: v.id("users"),
+    fullName: v.string(),
+    phone: v.string(),
+    ageCategory: v.optional(v.string()),
+    club: v.optional(v.string()),
+    status: v.union(v.literal("registered"), v.literal("cancelled")),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_user", ["userId"])
+    .index("by_event_user", ["eventId", "userId"]),
 
   banners: defineTable({
     title: v.string(),

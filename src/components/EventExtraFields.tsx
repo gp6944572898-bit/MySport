@@ -11,6 +11,7 @@ export type ExtraValue = {
   ageCategories: string[]
   price: string // строка из input; пусто = бесплатно
   currency: string
+  capacity: string // лимит участников; пусто = без лимита
   // Фото галереи: id файла + адрес для превью.
   photos: { id: Id<"_storage">; url: string }[]
 }
@@ -19,6 +20,7 @@ export const emptyExtra: ExtraValue = {
   ageCategories: [],
   price: "",
   currency: "RUB",
+  capacity: "",
   photos: [],
 }
 
@@ -32,6 +34,7 @@ export function extraToArgs(v: ExtraValue) {
     ageCategories: v.ageCategories,
     price: price !== undefined && Number.isFinite(price) ? price : undefined,
     currency: v.currency,
+    capacity: v.capacity.trim() === "" || !Number.isFinite(Number(v.capacity)) ? undefined : Math.max(0, Math.floor(Number(v.capacity))),
     photoFileIds: v.photos.map((p) => p.id),
   }
 }
@@ -145,6 +148,21 @@ export function EventExtraFields({
             ))}
           </select>
         </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-sm font-medium text-ink-700">
+          Лимит участников (пусто — без ограничений)
+        </label>
+        <input
+          className="input"
+          type="number"
+          min={0}
+          step="1"
+          inputMode="numeric"
+          value={value.capacity}
+          onChange={(e) => onChange({ ...value, capacity: e.target.value })}
+        />
       </div>
 
       <div>

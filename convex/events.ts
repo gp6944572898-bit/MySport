@@ -38,6 +38,7 @@ const eventValidator = v.object({
   region: v.optional(v.string()),
   price: v.optional(v.number()),
   currency: v.optional(v.string()),
+  capacity: v.optional(v.number()),
   photoFileIds: v.optional(v.array(v.id("_storage"))),
   // Готовые адреса фотографий галереи (в том же порядке, что и photoFileIds).
   photoUrls: v.optional(v.array(v.string())),
@@ -137,6 +138,7 @@ const eventFields = {
   region: v.optional(v.string()),
   price: v.optional(v.number()),
   currency: v.optional(v.string()),
+  capacity: v.optional(v.number()),
   photoFileIds: v.optional(v.array(v.id("_storage"))),
 }
 
