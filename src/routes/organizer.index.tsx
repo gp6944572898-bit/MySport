@@ -9,6 +9,7 @@ import { fuzzyFind, uploadFile } from "~/lib/upload"
 import { BannerPicker } from "~/components/BannerPicker"
 import { CountryRegionFields } from "~/components/LocationFields"
 import { MapPinPicker, type Pin } from "~/components/MapPinPicker"
+import { ResultsPanel } from "~/components/ResultsPanel"
 import { ParticipantsPanel } from "~/components/ParticipantsPanel"
 import { useCity } from "~/lib/city"
 import { EventExtraFields, emptyExtra, extraToArgs, type ExtraValue } from "~/components/EventExtraFields"
@@ -118,6 +119,13 @@ function OrganizerIndex() {
                 {event.ageCategories?.length ? ` · ${event.ageCategories.join(", ")}` : ""}
               </p>
               <ParticipantsPanel eventId={event._id} title={event.title} />
+              <ResultsPanel
+                eventId={event._id}
+                published={event.resultsPublished === true}
+                editor
+                photoUrls={event.photoUrls}
+                ageCategories={event.ageCategories}
+              />
             </div>
             <button
               className="btn-ghost text-red-600 hover:bg-red-50"
