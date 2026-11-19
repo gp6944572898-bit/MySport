@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "~convex/_generated/api"
 import type { Id } from "~convex/_generated/dataModel"
+import { ResultsPanel } from "~/components/ResultsPanel"
 import { RegisterButton } from "~/components/RegisterButton"
 import { formatEventDateTime } from "~/lib/format"
 import { EVENT_RANK_LABELS, formatPrice } from "~/lib/sportSections"
@@ -135,6 +136,11 @@ function AfishaPage() {
                   {event.ageCategories?.length ? ` · ${event.ageCategories.join(", ")}` : ""}
                 </p>
                 <RegisterButton event={event} />
+                <ResultsPanel
+                  eventId={event._id}
+                  published={event.resultsPublished === true}
+                  photoUrls={event.photoUrls}
+                />
                 {event.regulationUrl && (
                   <a
                     href={event.regulationUrl}

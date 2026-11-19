@@ -6,6 +6,7 @@ import type { Doc, Id } from "~convex/_generated/dataModel"
 import { datetimeLocalToTimestamp, formatEventDateTime, timestampToDatetimeLocal } from "~/lib/format"
 import { EVENT_RANK_LABELS, EVENT_RANK_OPTIONS, formatPrice, type EventRank } from "~/lib/sportSections"
 import { BannerPicker, type BannerValue } from "~/components/BannerPicker"
+import { ResultsPanel } from "~/components/ResultsPanel"
 import { ParticipantsPanel } from "~/components/ParticipantsPanel"
 import { CountryRegionFields } from "~/components/LocationFields"
 import { EventExtraFields, emptyExtra, extraToArgs, type ExtraValue } from "~/components/EventExtraFields"
@@ -191,6 +192,13 @@ function AdminEventsPage() {
                   {formatEventDateTime(event.startTime)} · {formatPrice(event.price, event.currency)}
                 </p>
                 <ParticipantsPanel eventId={event._id} title={event.title} />
+                <ResultsPanel
+                  eventId={event._id}
+                  published={event.resultsPublished === true}
+                  editor
+                  photoUrls={event.photoUrls}
+                  ageCategories={event.ageCategories}
+                />
               </div>
               <div className="flex gap-2">
                 <button className="btn-ghost" onClick={() => setEditingId(event._id)}>

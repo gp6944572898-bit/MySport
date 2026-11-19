@@ -79,6 +79,9 @@ export default defineSchema({
     // Стоимость участия (0 или пусто — бесплатно) и валюта (RUB/EUR/USD).
     price: v.optional(v.number()),
     currency: v.optional(v.string()),
+    // Результаты опубликованы (видны всем) и протоколы (PDF/фото) события.
+    resultsPublished: v.optional(v.boolean()),
+    protocols: v.optional(v.array(v.object({ fileId: v.id("_storage"), name: v.string() }))),
     // Лимит участников (пусто — без ограничений).
     capacity: v.optional(v.number()),
     // Галерея фотографий события (файлы в Convex Storage).
@@ -87,6 +90,16 @@ export default defineSchema({
     .index("by_city_startTime", ["city", "startTime"])
     .index("by_sport_startTime", ["sportId", "startTime"])
     .index("by_createdBy", ["createdBy"]),
+
+  // Строки итогового протокола события.
+  results: defineTable({
+    eventId: v.id("events"),
+    place: v.number(),
+    fullName: v.string(),
+    ageCategory: v.optional(v.string()),
+    // Результат как текст: время, очки, дистанция и т.п.
+    result: v.string(),
+  }).index("by_event", ["eventId"]),
 
   // Заявки на участие в событии. Оплата и страховка будут добавлены позже.
   registrations: defineTable({

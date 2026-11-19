@@ -39,6 +39,8 @@ const eventValidator = v.object({
   price: v.optional(v.number()),
   currency: v.optional(v.string()),
   capacity: v.optional(v.number()),
+  resultsPublished: v.optional(v.boolean()),
+  protocols: v.optional(v.array(v.object({ fileId: v.id("_storage"), name: v.string() }))),
   photoFileIds: v.optional(v.array(v.id("_storage"))),
   // Готовые адреса фотографий галереи (в том же порядке, что и photoFileIds).
   photoUrls: v.optional(v.array(v.string())),
